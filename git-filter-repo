@@ -1947,6 +1947,11 @@ EXAMPLES
         dest='report_dir',
         help=_("Directory to write report, defaults to GIT_DIR/filter_repo/analysis,"
                "refuses to run if exists, --force delete existing dir first."))
+    analyze.add_argument('--one-path-per-blob', action='store_true',
+        help=_("The report 'blob-shas-and-paths.txt' will be written so that "
+               "each blob has only a single path, instead of the usual method "
+               "of each blob having all its paths. This makes filtering by "
+               "path easier."))
 
     path = parser.add_argument_group(title=_("Filtering based on paths "
                                              "(see also --filename-callback)"),
@@ -2642,7 +2647,7 @@ class RepoAnalyze(object):
     return stats
 
   @staticmethod
-  def write_report(reportdir, stats):
+  def write_report(reportdir, stats, one_path_per_blob):
     def datestr(datetimestr):
       return datetimestr if datetimestr else _('<present>').encode()
 
@@ -2884,6 +2889,13 @@ class RepoAnalyze(object):
         names_with_sha = stats['names'][sha]
         if len(names_with_sha) == 1:
           names_with_sha = names_with_sha.pop()
+        elif one_path_per_blob:
+          for name in sorted(names_with_sha):
+            f.write(b"  %s %10d %10d %s\n" % (sha,
+                                              stats['unpacked_size'][sha],
+                                              size,
+                                              name))
+          continue
         else:
           names_with_sha = b'[' + b', '.join(sorted(names_with_sha)) + b']'
         f.write(b"  %s %10d %10d %s\n" % (sha,
@@ -2920,7 +2932,7 @@ class RepoAnalyze(object):
     # Write the reports
     sys.stdout.write(_("Writing reports to \"%s\"...") % decode(reportdir))
     sys.stdout.flush()
-    RepoAnalyze.write_report(reportdir, stats)
+    RepoAnalyze.write_report(reportdir, stats, args.one_path_per_blob)
     sys.stdout.write(_("done.\n"))
     sys.stdout.write(_("README: \"%s\"\n") % decode( os.path.join(reportdir, b"README") ))
 
